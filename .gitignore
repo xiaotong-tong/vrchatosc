@@ -1,0 +1,48 @@
+node_modules/
+dist/
+out/
+release/
+build/
+*.asar
+*.dmg
+*.exe
+*.msi
+*.AppImage
+*.deb
+*.snap
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# OS generated
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Misc
+.cache/
+tmp/
+temp/
+.vscode-test/
+
+.temp/
+sherpa-model/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/test_wavs
+sherpa-model/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/model.int8.onnx

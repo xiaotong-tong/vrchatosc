@@ -1,0 +1,52 @@
+{
+	"name": "vrchatosc",
+	"version": "1.0.0",
+	"description": "",
+	"license": "ISC",
+	"author": "",
+	"type": "commonjs",
+	"main": "main.js",
+	"scripts": {
+		"start": "chcp 65001 >nul && electron .",
+		"test": "echo \"Error: no test specified\" && exit 1",
+		"dist": "electron-builder --win --x64",
+		"pack": "electron-builder --dir --win --x64"
+	},
+	"devDependencies": {
+		"electron": "^40.6.1",
+		"electron-builder": "^26.8.1"
+	},
+	"dependencies": {
+		"electron-updater": "^6.8.3",
+		"node-osc": "^11.2.2",
+		"sherpa-onnx-node": "^1.12.34",
+		"sherpa-onnx-win-x64": "^1.12.28"
+	},
+	"build": {
+		"appId": "com.xinxi.vrchatosc",
+		"productName": "vrchatosc",
+		"directories": {
+			"output": "dist"
+		},
+		"files": [
+			"**/*",
+			"!dist",
+			"!sherpa-model/**/*.tar.bz2",
+			"!**/.git"
+		],
+		"win": {
+			"target": [
+				"nsis",
+				"zip"
+			],
+			"icon": "icon.png"
+		},
+		"publish": [
+			{
+				"provider": "github",
+				"owner": "xiaotong-tong",
+				"repo": "vrchatosc"
+			}
+		]
+	}
+}

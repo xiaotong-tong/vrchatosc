@@ -1,0 +1,33 @@
+name: Build & Release
+
+on:
+    push:
+        tags:
+            - "v*" # 只有推送类似 v1.0.0 这种以 v 开头的 tag 时才会触发
+
+jobs:
+    build-and-release:
+        runs-on: windows-latest
+
+        # 需要赋予写入权限才能创建 Release
+        permissions:
+            contents: write
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "20"
+
+            - name: Install dependencies
+              run: npm install
+
+            # electron-builder 支持使用 Github Actions 提供的默认 GITHUB_TOKEN
+            # -- -p always 参数用于告诉 electron-builder 打包完成后执行 publish
+            - name: Build and Publish
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: npm run dist -- -p always

@@ -1,0 +1,209 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="UTF-8" />
+		<meta
+			http-equiv="Content-Security-Policy"
+			content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';"
+		/>
+		<title>Minimal Electron App</title>
+		<link rel="stylesheet" href="styles.css" />
+	</head>
+	<body>
+		<div id="app-container">
+			<!-- 左侧边栏 -->
+			<div id="sidebar">
+				<h2 class="app-title">VRChat OSC</h2>
+				<ul class="nav-list">
+					<li class="nav-item active" data-target="page-chatbox">Chatbox & Speech</li>
+					<li class="nav-item" data-target="page-osc">OSC Sender</li>
+				</ul>
+			</div>
+
+			<!-- 右侧主要内容区域 -->
+			<div id="main-content">
+				<!-- OSC 发送页面 -->
+				<div id="page-osc" class="page">
+					<h1>Send OSC Data</h1>
+
+					<div class="chatbox-wrapper" style="margin-bottom: 20px">
+						<h3>时间同步设置</h3>
+						<div style="display: flex; gap: 15px; margin-bottom: 15px">
+							<button id="toggle-time-sync-btn" style="background-color: #f39c12; color: white">
+								开启自动同步时间
+							</button>
+							<button id="send-osc-btn">立即同步所有数据</button>
+						</div>
+						<div id="osc-status" class="status-msg"></div>
+					</div>
+				</div>
+
+				<!-- Chatbox 页面 -->
+				<div id="page-chatbox" class="page active">
+					<h1>VRChat Chatbox</h1>
+					<div id="chatbox-status" class="status-msg"></div>
+
+					<div id="chatbox-container" class="chatbox-wrapper">
+						<!-- 移至上方的模式选择区域 -->
+						<div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 5px">
+							<!-- 语音发送模式 -->
+							<div
+								class="send-options"
+								style="
+									display: flex;
+									align-items: center;
+									background: #fdfdfd;
+									border: 1px solid #e1e4e8;
+									border-radius: 4px;
+									padding: 8px 15px;
+									font-size: 14px;
+									color: #555;
+								"
+							>
+								<span style="margin-right: 15px; font-weight: 500">语音发送模式:</span>
+								<label style="margin-right: 15px; cursor: pointer">
+									<input type="radio" name="voice-auto-mode" value="on" /> 开启
+								</label>
+								<label style="cursor: pointer">
+									<input type="radio" name="voice-auto-mode" value="off" checked /> 关闭
+								</label>
+							</div>
+
+							<!-- 语音开启后的子选项 -->
+							<div
+								id="voice-auto-options"
+								style="
+									display: none;
+									background: #f9f9f9;
+									padding: 8px 15px;
+									border-radius: 4px;
+									border: 1px dashed #dcdde1;
+									font-size: 13px;
+									color: #666;
+								"
+							>
+								<label style="margin-right: 12px; cursor: pointer"
+									><input type="radio" name="voice-auto-action" value="direct-send" checked />
+									说话后直接发送到 vrchat 聊天框</label
+								>
+								<label style="cursor: pointer"
+									><input type="radio" name="voice-auto-action" value="to-textbox" />
+									说话后识别到下方对话窗口</label
+								>
+							</div>
+
+							<div
+								class="send-options"
+								style="
+									display: flex;
+									align-items: center;
+									background: #fdfdfd;
+									border: 1px solid #e1e4e8;
+									border-radius: 4px;
+									padding: 8px 15px;
+									font-size: 14px;
+									color: #555;
+								"
+							>
+								<span style="margin-right: 15px; font-weight: 500">发送模式:</span>
+								<label style="margin-right: 15px; cursor: pointer">
+									<input type="radio" name="send-mode" value="direct" checked /> 直接发送
+								</label>
+								<label style="margin-right: 15px; cursor: pointer">
+									<input type="radio" name="send-mode" value="ask" /> AI 问答
+								</label>
+								<label style="cursor: pointer">
+									<input type="radio" name="send-mode" value="translate" /> AI 翻译
+								</label>
+							</div>
+
+							<!-- 翻译语言子选项，仅在“AI 翻译”模式下显示 -->
+							<div
+								id="translate-options"
+								style="
+									display: none;
+									background: #f9f9f9;
+									padding: 8px 15px;
+									border-radius: 4px;
+									border: 1px dashed #dcdde1;
+									font-size: 13px;
+									color: #666;
+								"
+							>
+								<span style="margin-right: 10px; font-weight: 500">目标语言:</span>
+								<label style="margin-right: 12px; cursor: pointer"
+									><input type="checkbox" value="中文" class="lang-cb" /> 中文</label
+								>
+								<label style="margin-right: 12px; cursor: pointer"
+									><input type="checkbox" value="英文" class="lang-cb" /> 英文</label
+								>
+								<label style="margin-right: 12px; cursor: pointer"
+									><input type="checkbox" value="日文" class="lang-cb" /> 日文</label
+								>
+								<label style="cursor: pointer"
+									><input type="checkbox" value="韩文" class="lang-cb" /> 韩文</label
+								>
+							</div>
+						</div>
+
+						<textarea id="chatbox-input" placeholder="Type message for VRChat chatbox..."></textarea>
+
+						<div
+							class="send-controls"
+							style="display: flex; align-items: center; justify-content: flex-end; margin-top: 5px"
+						>
+							<button id="send-chatbox-btn">Send to Chatbox</button>
+						</div>
+					</div>
+
+					<div id="history-container" class="chatbox-wrapper" style="margin-top: 20px">
+						<div
+							style="
+								display: flex;
+								justify-content: space-between;
+								align-items: center;
+								margin-bottom: 10px;
+							"
+						>
+							<h3 style="margin: 0; font-size: 16px">History</h3>
+							<button
+								id="clear-history-btn"
+								style="
+									padding: 4px 10px;
+									font-size: 12px;
+									background-color: #555;
+									color: white;
+									border: none;
+									border-radius: 4px;
+								"
+							>
+								Clear History
+							</button>
+						</div>
+						<div
+							id="history-log"
+							style="
+								background: #fdfdfd;
+								border: 1px solid #ccc;
+								border-radius: 4px;
+								padding: 10px;
+								height: 150px;
+								overflow-y: auto;
+								color: #333;
+								font-family: inherit;
+								white-space: pre-wrap;
+								font-size: 14px;
+								line-height: 1.5;
+								box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+							"
+						>
+							<span style="color: #999; font-style: italic">在这里显示历史记录...</span>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<script src="./renderer.js"></script>
+	</body>
+</html>
