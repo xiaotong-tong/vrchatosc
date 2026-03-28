@@ -59,6 +59,10 @@ app.whenReady().then(() => {
 		}
 	});
 
+	ipcMain.on("osc:set-timezone", (event, timezoneOffsetHours) => {
+		oscService.setTimezoneOffset(timezoneOffsetHours);
+	});
+
 	ipcMain.on("osc:send-chatbox", async (event, text, mode, targetLangs) => {
 		let finalText = text;
 		if (mode === "ask") {

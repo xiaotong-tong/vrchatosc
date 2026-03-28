@@ -134,10 +134,37 @@ const sendVrchatFloatMap = [
 
 let client;
 let intervalId;
+let syncTimezoneOffsetHours = null; // null = local timezone
+
+function getNowInSyncTimezone() {
+	if (syncTimezoneOffsetHours === null || syncTimezoneOffsetHours === undefined) {
+		return new Date();
+	}
+
+	const utcMs = Date.now() + new Date().getTimezoneOffset() * 60 * 1000;
+	return new Date(utcMs + syncTimezoneOffsetHours * 60 * 60 * 1000);
+}
+
+function setTimezoneOffset(offsetHours) {
+	if (offsetHours === null || offsetHours === undefined || offsetHours === "") {
+		syncTimezoneOffsetHours = null;
+		console.log("[OSC] Time sync timezone set to local");
+		return;
+	}
+
+	const parsed = Number(offsetHours);
+	if (Number.isNaN(parsed)) {
+		console.warn("[OSC] Invalid timezone offset, keeping previous value:", offsetHours);
+		return;
+	}
+
+	syncTimezoneOffsetHours = parsed;
+	console.log(`[OSC] Time sync timezone set to UTC${parsed >= 0 ? "+" : ""}${parsed}`);
+}
 
 function sendMinute() {
 	if (!client) return;
-	const now = new Date();
+	const now = getNowInSyncTimezone();
 	const m = now.getMinutes();
 	console.log(`Sending minute: ${m}`);
 	client.send("/avatar/parameters/XINXIM", sendVrchatFloatMap[m]);
@@ -145,7 +172,7 @@ function sendMinute() {
 
 function sendHDW() {
 	if (!client) return;
-	const now = new Date();
+	const now = getNowInSyncTimezone();
 	const h = now.getHours();
 	const d = now.getDate();
 	const w = now.getDay();
@@ -165,10 +192,10 @@ function start() {
 	sendMinute();
 	sendHDW();
 
-	let lastSentHDWHour = new Date().getHours();
+	let lastSentHDWHour = getNowInSyncTimezone().getHours();
 
 	const sendMinuteWrapper = () => {
-		const now = new Date();
+		const now = getNowInSyncTimezone();
 		const m = now.getMinutes();
 
 		sendMinute();
@@ -217,5 +244,6 @@ function sendNow() {
 module.exports = {
 	start,
 	stop,
-	sendNow
+	sendNow,
+	setTimezoneOffset
 };

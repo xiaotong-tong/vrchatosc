@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld("api", {
 	message: "Preload script loaded",
 	sendOSC: () => ipcRenderer.send("osc:send-now"),
 	toggleTimeSync: (shouldSync) => ipcRenderer.send("osc:toggle-time-sync", shouldSync),
+	setTimezone: (timezoneOffsetHours) => ipcRenderer.send("osc:set-timezone", timezoneOffsetHours),
 	sendChatbox: (text, mode, targetLangs) => ipcRenderer.send("osc:send-chatbox", text, mode, targetLangs),
 	onChatboxSent: (callback) => ipcRenderer.on("osc:chatbox-sent", (event, text) => callback(text)),
 	// 新增 STT (语音转文本) 通信接口

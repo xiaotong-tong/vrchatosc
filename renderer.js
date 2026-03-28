@@ -16,26 +16,49 @@ document.querySelectorAll(".nav-item").forEach((item) => {
 let isTimeSyncRunning = false;
 const toggleTimeSyncBtn = document.getElementById("toggle-time-sync-btn");
 const oscStatusEl = document.getElementById("osc-status");
+const timezoneSelect = document.getElementById("timezone-select");
+
+function getTimezoneLabel(value) {
+	if (value === "local") return "本地时区";
+	const n = Number(value);
+	if (Number.isNaN(n)) return "未知时区";
+	return `UTC${n >= 0 ? "+" : ""}${n}`;
+}
+
+function getTimezonePayload(value) {
+	if (value === "local") return null;
+	const n = Number(value);
+	return Number.isNaN(n) ? null : n;
+}
+
+window.api.setTimezone(getTimezonePayload(timezoneSelect.value));
+
+timezoneSelect.addEventListener("change", () => {
+	const payload = getTimezonePayload(timezoneSelect.value);
+	window.api.setTimezone(payload);
+	oscStatusEl.innerText = `已切换同步时区：${getTimezoneLabel(timezoneSelect.value)}`;
+});
 
 toggleTimeSyncBtn.addEventListener("click", () => {
 	isTimeSyncRunning = !isTimeSyncRunning;
 	window.api.toggleTimeSync(isTimeSyncRunning);
+	const tzLabel = getTimezoneLabel(timezoneSelect.value);
 
 	if (isTimeSyncRunning) {
 		toggleTimeSyncBtn.innerText = "⏹ 停止自动同步";
 		toggleTimeSyncBtn.style.backgroundColor = "#e74c3c";
-		oscStatusEl.innerText = "Time polling started at " + new Date().toLocaleTimeString();
+		oscStatusEl.innerText = `自动同步已开启 (${tzLabel}) - ${new Date().toLocaleTimeString()}`;
 	} else {
 		toggleTimeSyncBtn.innerText = "▶ 开启自动同步时间";
 		toggleTimeSyncBtn.style.backgroundColor = "#f39c12";
-		oscStatusEl.innerText = "Time polling stopped at " + new Date().toLocaleTimeString();
+		oscStatusEl.innerText = `自动同步已停止 (${tzLabel}) - ${new Date().toLocaleTimeString()}`;
 	}
 });
 
 document.getElementById("send-osc-btn").addEventListener("click", () => {
 	window.api.sendOSC();
 	console.log("OSC send request sent (via clean renderer)");
-	oscStatusEl.innerText = "Immediate send triggered at " + new Date().toLocaleTimeString();
+	oscStatusEl.innerText = `已立即同步 (${getTimezoneLabel(timezoneSelect.value)}) - ${new Date().toLocaleTimeString()}`;
 });
 
 // --- Chatbox Logic ---

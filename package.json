@@ -1,6 +1,6 @@
 {
 	"name": "vrchatosc",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"description": "",
 	"license": "ISC",
 	"author": "",
@@ -30,8 +30,15 @@
 		},
 		"files": [
 			"**/*",
-			"!dist",
+			"!dist/**",
+			"!.temp/**",
+			"!release/**",
+			"!out/**",
 			"!sherpa-model/**/*.tar.bz2",
+			"!sherpa-model/**/test_wavs/**",
+			"!sherpa-model/**/model.int8.onnx",
+			"!**/.github/**",
+			"!**/.vscode/**",
 			"!**/.git"
 		],
 		"win": {

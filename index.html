@@ -6,7 +6,7 @@
 			http-equiv="Content-Security-Policy"
 			content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';"
 		/>
-		<title>Minimal Electron App</title>
+		<title>VRChat OSC 工具</title>
 		<link rel="stylesheet" href="styles.css" />
 	</head>
 	<body>
@@ -15,8 +15,8 @@
 			<div id="sidebar">
 				<h2 class="app-title">VRChat OSC</h2>
 				<ul class="nav-list">
-					<li class="nav-item active" data-target="page-chatbox">Chatbox & Speech</li>
-					<li class="nav-item" data-target="page-osc">OSC Sender</li>
+					<li class="nav-item active" data-target="page-chatbox">聊天框与语音</li>
+					<li class="nav-item" data-target="page-osc">OSC 发送器</li>
 				</ul>
 			</div>
 
@@ -24,7 +24,7 @@
 			<div id="main-content">
 				<!-- OSC 发送页面 -->
 				<div id="page-osc" class="page">
-					<h1>Send OSC Data</h1>
+					<h1>发送 OSC 数据</h1>
 
 					<div class="chatbox-wrapper" style="margin-bottom: 20px">
 						<h3>时间同步设置</h3>
@@ -34,13 +34,24 @@
 							</button>
 							<button id="send-osc-btn">立即同步所有数据</button>
 						</div>
+						<div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px">
+							<label for="timezone-select" style="font-size: 14px; color: #555">同步时区：</label>
+							<select
+								id="timezone-select"
+								style="padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px"
+							>
+								<option value="8" selected>东八区 (UTC+8)</option>
+								<option value="7">东七区 (UTC+7)</option>
+								<option value="local">本地时区</option>
+							</select>
+						</div>
 						<div id="osc-status" class="status-msg"></div>
 					</div>
 				</div>
 
 				<!-- Chatbox 页面 -->
 				<div id="page-chatbox" class="page active">
-					<h1>VRChat Chatbox</h1>
+					<h1>VRChat 聊天框</h1>
 					<div id="chatbox-status" class="status-msg"></div>
 
 					<div id="chatbox-container" class="chatbox-wrapper">
@@ -146,13 +157,13 @@
 							</div>
 						</div>
 
-						<textarea id="chatbox-input" placeholder="Type message for VRChat chatbox..."></textarea>
+						<textarea id="chatbox-input" placeholder="输入要发送到 VRChat 聊天框的文本..."></textarea>
 
 						<div
 							class="send-controls"
 							style="display: flex; align-items: center; justify-content: flex-end; margin-top: 5px"
 						>
-							<button id="send-chatbox-btn">Send to Chatbox</button>
+							<button id="send-chatbox-btn">发送到聊天框</button>
 						</div>
 					</div>
 
@@ -165,7 +176,7 @@
 								margin-bottom: 10px;
 							"
 						>
-							<h3 style="margin: 0; font-size: 16px">History</h3>
+							<h3 style="margin: 0; font-size: 16px">历史记录</h3>
 							<button
 								id="clear-history-btn"
 								style="
@@ -177,7 +188,7 @@
 									border-radius: 4px;
 								"
 							>
-								Clear History
+								清空历史
 							</button>
 						</div>
 						<div
