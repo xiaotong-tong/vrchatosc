@@ -7,10 +7,37 @@ let audioBuffer = [];
 let silenceTimer = 0;
 let isSpeaking = false;
 
-function createRecognizerAndVad() {
-	const modelDir = path.join(__dirname, "..", "sherpa-model", "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17");
+function resolveModelDir() {
+	const modelSubPath = path.join("sherpa-model", "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17");
+	const candidates = [];
 
-	if (!fs.existsSync(modelDir)) {
+	if (process.resourcesPath) {
+		candidates.push(path.join(process.resourcesPath, modelSubPath));
+	}
+
+	// Dev fallback and asar fallback
+	candidates.push(path.join(__dirname, "..", modelSubPath));
+
+	for (const candidate of candidates) {
+		const modelFile = path.join(candidate, "model.onnx");
+		const tokenFile = path.join(candidate, "tokens.txt");
+		if (fs.existsSync(modelFile) && fs.existsSync(tokenFile)) {
+			console.log(`[STT] 使用模型目录: ${candidate}`);
+			return candidate;
+		}
+	}
+
+	console.warn("[STT] 模型目录未命中，尝试过的路径:");
+	for (const candidate of candidates) {
+		console.warn(`  - ${candidate}`);
+	}
+	return null;
+}
+
+function createRecognizerAndVad() {
+	const modelDir = resolveModelDir();
+
+	if (!modelDir) {
 		console.warn("[STT] 未找到 SenseVoice 模型！");
 		return false;
 	}

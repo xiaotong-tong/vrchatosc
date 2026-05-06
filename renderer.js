@@ -62,6 +62,30 @@ document.getElementById("send-osc-btn").addEventListener("click", () => {
 });
 
 // --- Chatbox Logic ---
+const sendSystemStatusBtn = document.getElementById("send-system-status-btn");
+
+if (sendSystemStatusBtn) {
+	sendSystemStatusBtn.addEventListener("click", async () => {
+		sendSystemStatusBtn.disabled = true;
+		sendSystemStatusBtn.innerText = "正在发送系统状态...";
+
+		try {
+			const result = await window.api.sendSystemStatusToChatbox();
+			if (result?.ok) {
+				document.getElementById("chatbox-status").innerText =
+					"系统状态已发送到聊天框 - " + new Date().toLocaleTimeString();
+			} else {
+				document.getElementById("chatbox-status").innerText =
+					"系统状态发送失败: " + (result?.error || "未知错误");
+			}
+		} catch (error) {
+			document.getElementById("chatbox-status").innerText = "系统状态发送失败: " + (error?.message || "未知错误");
+		} finally {
+			sendSystemStatusBtn.disabled = false;
+			sendSystemStatusBtn.innerText = "发送系统状态到聊天框";
+		}
+	});
+}
 
 // 监听发送模式改变，切换翻译子选项的可见性
 document.querySelectorAll('input[name="send-mode"]').forEach((radio) => {

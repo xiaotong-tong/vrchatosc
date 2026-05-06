@@ -16,15 +16,15 @@
 				<h2 class="app-title">VRChat OSC</h2>
 				<ul class="nav-list">
 					<li class="nav-item active" data-target="page-chatbox">聊天框与语音</li>
-					<li class="nav-item" data-target="page-osc">OSC 发送器</li>
+					<li class="nav-item" data-target="page-osc">OSC 时间同步</li>
 				</ul>
 			</div>
 
 			<!-- 右侧主要内容区域 -->
 			<div id="main-content">
-				<!-- OSC 发送页面 -->
+				<!-- OSC 时间同步页面 -->
 				<div id="page-osc" class="page">
-					<h1>发送 OSC 数据</h1>
+					<h1>OSC 时间同步</h1>
 
 					<div class="chatbox-wrapper" style="margin-bottom: 20px">
 						<h3>时间同步设置</h3>
@@ -41,6 +41,7 @@
 								style="padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px"
 							>
 								<option value="8" selected>东八区 (UTC+8)</option>
+								<option value="9">东九区 (UTC+9)</option>
 								<option value="7">东七区 (UTC+7)</option>
 								<option value="local">本地时区</option>
 							</select>
@@ -52,6 +53,11 @@
 				<!-- Chatbox 页面 -->
 				<div id="page-chatbox" class="page active">
 					<h1>VRChat 聊天框</h1>
+					<div style="margin-bottom: 12px">
+						<button id="send-system-status-btn" style="background-color: #16a085; color: #fff">
+							发送系统状态到聊天框
+						</button>
+					</div>
 					<div id="chatbox-status" class="status-msg"></div>
 
 					<div id="chatbox-container" class="chatbox-wrapper">

@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld("api", {
 	toggleTimeSync: (shouldSync) => ipcRenderer.send("osc:toggle-time-sync", shouldSync),
 	setTimezone: (timezoneOffsetHours) => ipcRenderer.send("osc:set-timezone", timezoneOffsetHours),
 	sendChatbox: (text, mode, targetLangs) => ipcRenderer.send("osc:send-chatbox", text, mode, targetLangs),
+	sendSystemStatusToChatbox: () => ipcRenderer.invoke("system:send-status-to-chatbox"),
 	onChatboxSent: (callback) => ipcRenderer.on("osc:chatbox-sent", (event, text) => callback(text)),
 	// 新增 STT (语音转文本) 通信接口
 	startSTT: () => ipcRenderer.send("stt:start"),

@@ -20,7 +20,8 @@
 		"electron-updater": "^6.8.3",
 		"node-osc": "^11.2.2",
 		"sherpa-onnx-node": "^1.12.34",
-		"sherpa-onnx-win-x64": "^1.12.28"
+		"sherpa-onnx-win-x64": "^1.12.28",
+		"systeminformation": "^5.31.5"
 	},
 	"build": {
 		"appId": "com.xinxi.vrchatosc",
@@ -28,12 +29,19 @@
 		"directories": {
 			"output": "dist"
 		},
+		"extraResources": [
+			{
+				"from": "sherpa-model",
+				"to": "sherpa-model"
+			}
+		],
 		"files": [
 			"**/*",
 			"!dist/**",
 			"!.temp/**",
 			"!release/**",
 			"!out/**",
+			"!sherpa-model/**",
 			"!sherpa-model/**/*.tar.bz2",
 			"!sherpa-model/**/test_wavs/**",
 			"!sherpa-model/**/model.int8.onnx",

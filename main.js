@@ -1,7 +1,8 @@
-const { app, BrowserWindow, ipcMain } = require("electron");
+const { app, BrowserWindow, ipcMain, session } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
 const { autoUpdater } = require("electron-updater");
+const si = require("systeminformation");
 
 // Simple .env file parser (since npm install might be encountering permission issues)
 try {
@@ -28,6 +29,65 @@ const oscService = require("./node/osc-service.js");
 const chatboxService = require("./node/chatbox-service.js");
 const sttService = require("./node/stt-service.js");
 
+function formatPercent(value) {
+	if (!Number.isFinite(value)) return "N/A";
+	return `${value.toFixed(1)}%`;
+}
+
+function bytesToGB(value) {
+	if (!Number.isFinite(value) || value <= 0) return "0.0";
+	return (value / 1024 / 1024 / 1024).toFixed(1);
+}
+
+function readGpuUsage(controller) {
+	const candidates = [
+		controller?.utilizationGpu,
+		controller?.utilizationgpu,
+		controller?.gpuUtilization,
+		controller?.gpuutilization,
+		controller?.utilizationMemory,
+		controller?.memoryUtilization
+	];
+
+	for (const value of candidates) {
+		if (Number.isFinite(value)) return value;
+	}
+
+	return null;
+}
+
+async function buildSystemStatusText() {
+	const [load, memory, graphics] = await Promise.all([si.currentLoad(), si.mem(), si.graphics()]);
+
+	const cpuText = formatPercent(load?.currentLoad);
+	const memUsed = Number(memory?.active) > 0 ? memory.active : memory?.used;
+	const memPercent =
+		Number.isFinite(memUsed) && Number.isFinite(memory?.total) && memory.total > 0
+			? formatPercent((memUsed / memory.total) * 100)
+			: "N/A";
+	const memText = `${bytesToGB(memUsed)}/${bytesToGB(memory?.total)}GB (${memPercent})`;
+
+	const controllers = Array.isArray(graphics?.controllers) ? graphics.controllers : [];
+	let gpuText = "N/A";
+	if (controllers.length > 0) {
+		const withUsage = controllers
+			.map((controller) => ({
+				name: controller?.model || controller?.name || "GPU",
+				usage: readGpuUsage(controller)
+			}))
+			.filter((item) => Number.isFinite(item.usage));
+
+		if (withUsage.length > 0) {
+			withUsage.sort((a, b) => b.usage - a.usage);
+			gpuText = `${withUsage[0].name} ${formatPercent(withUsage[0].usage)}`;
+		} else {
+			gpuText = `${controllers[0]?.model || controllers[0]?.name || "GPU"} N/A`;
+		}
+	}
+
+	return `系统状态\nCPU:${cpuText}\n内存:${memText}\nGPU:${gpuText}`;
+}
+
 function createWindow() {
 	const win = new BrowserWindow({
 		width: 1000,
@@ -44,6 +104,23 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+	const mediaPermissions = new Set(["media", "microphone", "camera"]);
+	session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
+		const allow = mediaPermissions.has(permission);
+		console.log(
+			`[PermissionRequest] ${permission} from ${details?.requestingUrl || "unknown"} -> ${allow ? "ALLOW" : "DENY"}`
+		);
+		callback(allow);
+	});
+
+	session.defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => {
+		const allow = mediaPermissions.has(permission);
+		if (mediaPermissions.has(permission)) {
+			console.log(`[PermissionCheck] ${permission} from ${requestingOrigin || "unknown"} -> ALLOW`);
+		}
+		return allow;
+	});
+
 	// Let oscService initialize but DON'T start auto-polling yet
 	oscService.start();
 
@@ -75,6 +152,21 @@ app.whenReady().then(() => {
 
 		chatboxService.sendChatbox(finalText);
 		event.reply("osc:chatbox-sent", finalText);
+	});
+
+	ipcMain.handle("system:send-status-to-chatbox", async (event) => {
+		try {
+			const text = await buildSystemStatusText();
+			chatboxService.sendChatbox(text);
+			event.sender.send("osc:chatbox-sent", text);
+			return { ok: true, text };
+		} catch (error) {
+			console.error("Failed to send system status:", error);
+			return {
+				ok: false,
+				error: error?.message || "获取系统状态失败"
+			};
+		}
 	});
 
 	// STT 相关事件监听
