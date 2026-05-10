@@ -15,7 +15,8 @@
 			<div id="sidebar">
 				<h2 class="app-title">VRChat OSC</h2>
 				<ul class="nav-list">
-					<li class="nav-item active" data-target="page-chatbox">聊天框与语音</li>
+					<li class="nav-item active" data-target="page-microphone">麦克风识别</li>
+					<li class="nav-item" data-target="page-system-audio">系统音频识别</li>
 					<li class="nav-item" data-target="page-osc">OSC 时间同步</li>
 				</ul>
 			</div>
@@ -50,20 +51,19 @@
 					</div>
 				</div>
 
-				<!-- Chatbox 页面 -->
-				<div id="page-chatbox" class="page active">
-					<h1>VRChat 聊天框</h1>
+				<!-- 麦克风识别页面 -->
+				<div id="page-microphone" class="page voice-page active" data-page-kind="microphone">
+					<h1>麦克风识别</h1>
+					<p class="page-description">采集你的麦克风输入，适合把你自己的语音转成 VRChat 聊天框文本。</p>
 					<div style="margin-bottom: 12px">
-						<button id="send-system-status-btn" style="background-color: #16a085; color: #fff">
+						<button data-role="send-system-status-btn" style="background-color: #16a085; color: #fff">
 							发送系统状态到聊天框
 						</button>
 					</div>
-					<div id="chatbox-status" class="status-msg"></div>
+					<div data-role="chatbox-status" class="status-msg"></div>
 
-					<div id="chatbox-container" class="chatbox-wrapper">
-						<!-- 移至上方的模式选择区域 -->
+					<div class="chatbox-wrapper">
 						<div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 5px">
-							<!-- 语音发送模式 -->
 							<div
 								class="send-options"
 								style="
@@ -79,16 +79,15 @@
 							>
 								<span style="margin-right: 15px; font-weight: 500">语音发送模式:</span>
 								<label style="margin-right: 15px; cursor: pointer">
-									<input type="radio" name="voice-auto-mode" value="on" /> 开启
+									<input type="radio" name="microphone-voice-auto-mode" value="on" /> 开启
 								</label>
 								<label style="cursor: pointer">
-									<input type="radio" name="voice-auto-mode" value="off" checked /> 关闭
+									<input type="radio" name="microphone-voice-auto-mode" value="off" checked /> 关闭
 								</label>
 							</div>
 
-							<!-- 语音开启后的子选项 -->
 							<div
-								id="voice-auto-options"
+								data-role="voice-auto-options"
 								style="
 									display: none;
 									background: #f9f9f9;
@@ -100,11 +99,16 @@
 								"
 							>
 								<label style="margin-right: 12px; cursor: pointer"
-									><input type="radio" name="voice-auto-action" value="direct-send" checked />
+									><input
+										type="radio"
+										name="microphone-voice-auto-action"
+										value="direct-send"
+										checked
+									/>
 									说话后直接发送到 vrchat 聊天框</label
 								>
 								<label style="cursor: pointer"
-									><input type="radio" name="voice-auto-action" value="to-textbox" />
+									><input type="radio" name="microphone-voice-auto-action" value="to-textbox" />
 									说话后识别到下方对话窗口</label
 								>
 							</div>
@@ -124,19 +128,22 @@
 							>
 								<span style="margin-right: 15px; font-weight: 500">发送模式:</span>
 								<label style="margin-right: 15px; cursor: pointer">
-									<input type="radio" name="send-mode" value="direct" checked /> 直接发送
+									<input type="radio" name="microphone-send-mode" value="direct" checked /> 直接发送
 								</label>
 								<label style="margin-right: 15px; cursor: pointer">
-									<input type="radio" name="send-mode" value="ask" /> AI 问答
+									<input type="radio" name="microphone-send-mode" value="ask" /> AI 问答
+								</label>
+								<label style="margin-right: 15px; cursor: pointer">
+									<input type="radio" name="microphone-send-mode" value="aliyun-translate" />
+									阿里云机器翻译
 								</label>
 								<label style="cursor: pointer">
-									<input type="radio" name="send-mode" value="translate" /> AI 翻译
+									<input type="radio" name="microphone-send-mode" value="translate" /> AI 翻译
 								</label>
 							</div>
 
-							<!-- 翻译语言子选项，仅在“AI 翻译”模式下显示 -->
 							<div
-								id="translate-options"
+								data-role="translate-options"
 								style="
 									display: none;
 									background: #f9f9f9;
@@ -149,31 +156,35 @@
 							>
 								<span style="margin-right: 10px; font-weight: 500">目标语言:</span>
 								<label style="margin-right: 12px; cursor: pointer"
-									><input type="checkbox" value="中文" class="lang-cb" /> 中文</label
+									><input type="checkbox" value="中文" data-role="lang-cb" /> 中文</label
 								>
 								<label style="margin-right: 12px; cursor: pointer"
-									><input type="checkbox" value="英文" class="lang-cb" /> 英文</label
+									><input type="checkbox" value="英文" data-role="lang-cb" /> 英文</label
 								>
 								<label style="margin-right: 12px; cursor: pointer"
-									><input type="checkbox" value="日文" class="lang-cb" /> 日文</label
+									><input type="checkbox" value="日文" data-role="lang-cb" /> 日文</label
 								>
 								<label style="cursor: pointer"
-									><input type="checkbox" value="韩文" class="lang-cb" /> 韩文</label
+									><input type="checkbox" value="韩文" data-role="lang-cb" /> 韩文</label
 								>
 							</div>
 						</div>
 
-						<textarea id="chatbox-input" placeholder="输入要发送到 VRChat 聊天框的文本..."></textarea>
+						<textarea
+							data-role="chatbox-input"
+							class="chatbox-input"
+							placeholder="输入要发送到 VRChat 聊天框的文本..."
+						></textarea>
 
 						<div
 							class="send-controls"
 							style="display: flex; align-items: center; justify-content: flex-end; margin-top: 5px"
 						>
-							<button id="send-chatbox-btn">发送到聊天框</button>
+							<button data-role="send-chatbox-btn" class="send-chatbox-btn">发送到聊天框</button>
 						</div>
 					</div>
 
-					<div id="history-container" class="chatbox-wrapper" style="margin-top: 20px">
+					<div class="chatbox-wrapper" style="margin-top: 20px">
 						<div
 							style="
 								display: flex;
@@ -184,7 +195,7 @@
 						>
 							<h3 style="margin: 0; font-size: 16px">历史记录</h3>
 							<button
-								id="clear-history-btn"
+								data-role="clear-history-btn"
 								style="
 									padding: 4px 10px;
 									font-size: 12px;
@@ -197,23 +208,179 @@
 								清空历史
 							</button>
 						</div>
+						<div data-role="history-log" class="history-log">
+							<span style="color: #999; font-style: italic">在这里显示历史记录...</span>
+						</div>
+					</div>
+				</div>
+
+				<!-- 系统音频识别页面 -->
+				<div id="page-system-audio" class="page voice-page" data-page-kind="system-audio">
+					<h1>系统音频识别</h1>
+					<p class="page-description">
+						采集电脑正在播放的系统声音，用来识别 VRChat 里其他玩家的语音。第一版会抓取系统输出混音，不只限
+						VRChat。
+					</p>
+					<div class="capture-tip-box">
+						<div class="capture-tip-title">捕获失败时先看这里</div>
+						<div>1. 首次开启会弹出系统捕获授权；如果取消或拒绝，页面会自动停用监听。</div>
+						<div>2. 就算授权成功，如果系统回环音频轨没有建立成功，也会显示“未检测到系统音频轨道”。</div>
+						<div>3. 监听中如果系统停止了共享流，页面也会提示“系统音频捕获已自动停止”。</div>
+					</div>
+					<div style="margin-bottom: 12px">
+						<button data-role="send-system-status-btn" style="background-color: #16a085; color: #fff">
+							发送系统状态到聊天框
+						</button>
+					</div>
+					<div data-role="chatbox-status" class="status-msg"></div>
+
+					<div class="chatbox-wrapper">
+						<div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 5px">
+							<div
+								class="send-options"
+								style="
+									display: flex;
+									align-items: center;
+									background: #fdfdfd;
+									border: 1px solid #e1e4e8;
+									border-radius: 4px;
+									padding: 8px 15px;
+									font-size: 14px;
+									color: #555;
+								"
+							>
+								<span style="margin-right: 15px; font-weight: 500">语音发送模式:</span>
+								<label style="margin-right: 15px; cursor: pointer">
+									<input type="radio" name="system-audio-voice-auto-mode" value="on" /> 开启
+								</label>
+								<label style="cursor: pointer">
+									<input type="radio" name="system-audio-voice-auto-mode" value="off" checked /> 关闭
+								</label>
+							</div>
+
+							<div
+								data-role="voice-auto-options"
+								style="
+									display: none;
+									background: #f9f9f9;
+									padding: 8px 15px;
+									border-radius: 4px;
+									border: 1px dashed #dcdde1;
+									font-size: 13px;
+									color: #666;
+								"
+							>
+								<label style="margin-right: 12px; cursor: pointer"
+									><input
+										type="radio"
+										name="system-audio-voice-auto-action"
+										value="direct-send"
+										checked
+									/>
+									说话后直接发送到 vrchat 聊天框</label
+								>
+								<label style="cursor: pointer"
+									><input type="radio" name="system-audio-voice-auto-action" value="to-textbox" />
+									说话后识别到下方对话窗口</label
+								>
+							</div>
+
+							<div
+								class="send-options"
+								style="
+									display: flex;
+									align-items: center;
+									background: #fdfdfd;
+									border: 1px solid #e1e4e8;
+									border-radius: 4px;
+									padding: 8px 15px;
+									font-size: 14px;
+									color: #555;
+								"
+							>
+								<span style="margin-right: 15px; font-weight: 500">发送模式:</span>
+								<label style="margin-right: 15px; cursor: pointer">
+									<input type="radio" name="system-audio-send-mode" value="direct" checked /> 直接发送
+								</label>
+								<label style="margin-right: 15px; cursor: pointer">
+									<input type="radio" name="system-audio-send-mode" value="ask" /> AI 问答
+								</label>
+								<label style="margin-right: 15px; cursor: pointer">
+									<input type="radio" name="system-audio-send-mode" value="aliyun-translate" />
+									阿里云机器翻译
+								</label>
+								<label style="cursor: pointer">
+									<input type="radio" name="system-audio-send-mode" value="translate" /> AI 翻译
+								</label>
+							</div>
+
+							<div
+								data-role="translate-options"
+								style="
+									display: none;
+									background: #f9f9f9;
+									padding: 8px 15px;
+									border-radius: 4px;
+									border: 1px dashed #dcdde1;
+									font-size: 13px;
+									color: #666;
+								"
+							>
+								<span style="margin-right: 10px; font-weight: 500">目标语言:</span>
+								<label style="margin-right: 12px; cursor: pointer"
+									><input type="checkbox" value="中文" data-role="lang-cb" /> 中文</label
+								>
+								<label style="margin-right: 12px; cursor: pointer"
+									><input type="checkbox" value="英文" data-role="lang-cb" /> 英文</label
+								>
+								<label style="margin-right: 12px; cursor: pointer"
+									><input type="checkbox" value="日文" data-role="lang-cb" /> 日文</label
+								>
+								<label style="cursor: pointer"
+									><input type="checkbox" value="韩文" data-role="lang-cb" /> 韩文</label
+								>
+							</div>
+						</div>
+
+						<textarea
+							data-role="chatbox-input"
+							class="chatbox-input"
+							placeholder="输入要发送到 VRChat 聊天框的文本..."
+						></textarea>
+
 						<div
-							id="history-log"
+							class="send-controls"
+							style="display: flex; align-items: center; justify-content: flex-end; margin-top: 5px"
+						>
+							<button data-role="send-chatbox-btn" class="send-chatbox-btn">发送到聊天框</button>
+						</div>
+					</div>
+
+					<div class="chatbox-wrapper" style="margin-top: 20px">
+						<div
 							style="
-								background: #fdfdfd;
-								border: 1px solid #ccc;
-								border-radius: 4px;
-								padding: 10px;
-								height: 150px;
-								overflow-y: auto;
-								color: #333;
-								font-family: inherit;
-								white-space: pre-wrap;
-								font-size: 14px;
-								line-height: 1.5;
-								box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+								display: flex;
+								justify-content: space-between;
+								align-items: center;
+								margin-bottom: 10px;
 							"
 						>
+							<h3 style="margin: 0; font-size: 16px">历史记录</h3>
+							<button
+								data-role="clear-history-btn"
+								style="
+									padding: 4px 10px;
+									font-size: 12px;
+									background-color: #555;
+									color: white;
+									border: none;
+									border-radius: 4px;
+								"
+							>
+								清空历史
+							</button>
+						</div>
+						<div data-role="history-log" class="history-log">
 							<span style="color: #999; font-style: italic">在这里显示历史记录...</span>
 						</div>
 					</div>

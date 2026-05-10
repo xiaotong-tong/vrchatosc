@@ -12,7 +12,7 @@ contextBridge.exposeInMainWorld("api", {
 	sendSystemStatusToChatbox: () => ipcRenderer.invoke("system:send-status-to-chatbox"),
 	onChatboxSent: (callback) => ipcRenderer.on("osc:chatbox-sent", (event, text) => callback(text)),
 	// 新增 STT (语音转文本) 通信接口
-	startSTT: () => ipcRenderer.send("stt:start"),
+	startSTT: (options) => ipcRenderer.send("stt:start", options),
 	stopSTT: () => ipcRenderer.send("stt:stop"),
 	sendAudioChunk: (arrayBuffer) => ipcRenderer.send("stt:chunk", arrayBuffer),
 	onSTTResult: (callback) => ipcRenderer.on("stt:result", (event, text, isFinal) => callback(text, isFinal))

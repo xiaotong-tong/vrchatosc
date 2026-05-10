@@ -6,6 +6,30 @@ let recognizer = null;
 let audioBuffer = [];
 let silenceTimer = 0;
 let isSpeaking = false;
+let streamConfig = null;
+
+const DEFAULT_STREAM_CONFIG = {
+	sourceKind: "microphone",
+	noiseGate: 0.01,
+	silenceSamples: 16000 * 2,
+	minDecodeSamples: 16000 * 0.5,
+	maxSegmentSamples: 16000 * 8
+};
+
+const STREAM_CONFIG_BY_SOURCE = {
+	microphone: {
+		noiseGate: 0.01,
+		silenceSamples: 16000 * 2,
+		minDecodeSamples: 16000 * 0.5,
+		maxSegmentSamples: 16000 * 8
+	},
+	"system-audio": {
+		noiseGate: 0.02,
+		silenceSamples: 16000 * 1.2,
+		minDecodeSamples: 16000 * 0.7,
+		maxSegmentSamples: 16000 * 4
+	}
+};
 
 function resolveModelDir() {
 	const modelSubPath = path.join("sherpa-model", "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17");
@@ -77,17 +101,66 @@ function init() {
 	return true;
 }
 
-function startStream() {
+function getStreamConfig(options = {}) {
+	const sourceKind = options?.sourceKind === "system-audio" ? "system-audio" : "microphone";
+	return {
+		...DEFAULT_STREAM_CONFIG,
+		...STREAM_CONFIG_BY_SOURCE[sourceKind],
+		sourceKind
+	};
+}
+
+function decodeBufferedAudio() {
+	if (!recognizer || !streamConfig) return { text: "", isFinal: false };
+
+	const totalLength = audioBuffer.reduce((acc, arr) => acc + arr.length, 0);
+	const mergedArray = new Float32Array(totalLength);
+	let offset = 0;
+	for (const arr of audioBuffer) {
+		mergedArray.set(arr, offset);
+		offset += arr.length;
+	}
+
+	audioBuffer = [];
+	silenceTimer = 0;
+	isSpeaking = false;
+
+	if (mergedArray.length <= streamConfig.minDecodeSamples) {
+		return { text: "", isFinal: false };
+	}
+
+	const stream = recognizer.createStream();
+	stream.acceptWaveform({
+		sampleRate: 16000,
+		samples: mergedArray
+	});
+
+	recognizer.decode(stream);
+	const result = recognizer.getResult(stream);
+
+	if (result && result.text) {
+		console.log(`[SenseVoice][${streamConfig.sourceKind}] -> ` + result.text);
+		return { text: result.text, isFinal: true };
+	}
+
+	return { text: "", isFinal: false };
+}
+
+function startStream(options = {}) {
 	if (!init()) return false;
 	audioBuffer = [];
 	silenceTimer = 0;
 	isSpeaking = false;
-	console.log("[STT] 开始监听录音流...");
+	streamConfig = getStreamConfig(options);
+	console.log(
+		`[STT] 开始监听录音流... source=${streamConfig.sourceKind}, noiseGate=${streamConfig.noiseGate}, maxSegment=${streamConfig.maxSegmentSamples}`
+	);
 	return true;
 }
 
 function feedAudio(float32Array) {
 	if (!recognizer) return { text: "", isFinal: false };
+	if (!streamConfig) streamConfig = getStreamConfig();
 
 	let sum = 0;
 	for (let i = 0; i < float32Array.length; i++) {
@@ -96,7 +169,7 @@ function feedAudio(float32Array) {
 	const volume = sum / float32Array.length;
 
 	// Simple noise gate
-	if (volume > 0.01) {
+	if (volume > streamConfig.noiseGate) {
 		isSpeaking = true;
 		silenceTimer = 0;
 	} else if (isSpeaking) {
@@ -107,42 +180,21 @@ function feedAudio(float32Array) {
 		audioBuffer.push(float32Array);
 	}
 
-	// 2.0s of silence triggers STT decode (16000 * 2.0 = 32000)
-	if (isSpeaking && silenceTimer > 32000) {
-		const totalLength = audioBuffer.reduce((acc, arr) => acc + arr.length, 0);
-		const mergedArray = new Float32Array(totalLength);
-		let offset = 0;
-		for (const arr of audioBuffer) {
-			mergedArray.set(arr, offset);
-			offset += arr.length;
+	const bufferedSamples = audioBuffer.reduce((acc, arr) => acc + arr.length, 0);
+	const hitSilenceBoundary = isSpeaking && silenceTimer > streamConfig.silenceSamples;
+	const hitMaxSegmentBoundary = isSpeaking && bufferedSamples >= streamConfig.maxSegmentSamples;
+
+	if (hitSilenceBoundary || hitMaxSegmentBoundary) {
+		if (hitMaxSegmentBoundary) {
+			console.log(`[STT] ${streamConfig.sourceKind} 触发强制切段，bufferedSamples=${bufferedSamples}`);
 		}
-
-		audioBuffer = [];
-		silenceTimer = 0;
-		isSpeaking = false;
-
-		// Decode if we got at least 0.5s of audio
-		if (mergedArray.length > 16000 * 0.5) {
-			const stream = recognizer.createStream();
-			stream.acceptWaveform({
-				sampleRate: 16000,
-				samples: mergedArray
-			});
-
-			recognizer.decode(stream);
-			const result = recognizer.getResult(stream);
-			// stream.free(); // removed: not a function in this version
-
-			if (result && result.text) {
-				console.log("[SenseVoice] -> " + result.text);
-				return { text: result.text, isFinal: true };
-			}
-		}
+		return decodeBufferedAudio();
 	}
 	return { text: "", isFinal: false };
 }
 
 function stopStream() {
+	streamConfig = null;
 	audioBuffer = [];
 	silenceTimer = 0;
 	isSpeaking = false;

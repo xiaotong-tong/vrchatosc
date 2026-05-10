@@ -1,13 +1,13 @@
+const HISTORY_PLACEHOLDER = '<span style="color: #999; font-style: italic">在这里显示历史记录...</span>';
+
 // --- Navigation Logic ---
 document.querySelectorAll(".nav-item").forEach((item) => {
 	item.addEventListener("click", () => {
-		// Update Nav
-		document.querySelectorAll(".nav-item").forEach((n) => n.classList.remove("active"));
+		document.querySelectorAll(".nav-item").forEach((navItem) => navItem.classList.remove("active"));
 		item.classList.add("active");
 
-		// Update Page
 		const target = item.getAttribute("data-target");
-		document.querySelectorAll(".page").forEach((p) => p.classList.remove("active"));
+		document.querySelectorAll(".page").forEach((page) => page.classList.remove("active"));
 		document.getElementById(target).classList.add("active");
 	});
 });
@@ -61,212 +61,349 @@ document.getElementById("send-osc-btn").addEventListener("click", () => {
 	oscStatusEl.innerText = `已立即同步 (${getTimezoneLabel(timezoneSelect.value)}) - ${new Date().toLocaleTimeString()}`;
 });
 
-// --- Chatbox Logic ---
-const sendSystemStatusBtn = document.getElementById("send-system-status-btn");
+// --- Voice Page Logic ---
+const voicePages = new Map();
+let lastSendPageId = null;
+const captureState = {
+	activePageId: null,
+	isRecording: false,
+	stream: null,
+	audioCtx: null,
+	source: null,
+	processor: null,
+	gainNode: null,
+	trackEndHandler: null
+};
 
-if (sendSystemStatusBtn) {
-	sendSystemStatusBtn.addEventListener("click", async () => {
-		sendSystemStatusBtn.disabled = true;
-		sendSystemStatusBtn.innerText = "正在发送系统状态...";
+document.querySelectorAll(".voice-page").forEach((pageEl) => {
+	const pageId = pageEl.id;
+	const kind = pageEl.dataset.pageKind;
+	const config = {
+		pageId,
+		kind,
+		pageEl,
+		statusEl: pageEl.querySelector('[data-role="chatbox-status"]'),
+		sendSystemStatusBtn: pageEl.querySelector('[data-role="send-system-status-btn"]'),
+		translateOptionsEl: pageEl.querySelector('[data-role="translate-options"]'),
+		voiceAutoOptionsEl: pageEl.querySelector('[data-role="voice-auto-options"]'),
+		inputEl: pageEl.querySelector('[data-role="chatbox-input"]'),
+		sendChatboxBtn: pageEl.querySelector('[data-role="send-chatbox-btn"]'),
+		historyLogEl: pageEl.querySelector('[data-role="history-log"]'),
+		clearHistoryBtn: pageEl.querySelector('[data-role="clear-history-btn"]'),
+		sendModeRadios: Array.from(pageEl.querySelectorAll(`input[name="${kind}-send-mode"]`)),
+		voiceAutoModeRadios: Array.from(pageEl.querySelectorAll(`input[name="${kind}-voice-auto-mode"]`)),
+		voiceAutoActionRadios: Array.from(pageEl.querySelectorAll(`input[name="${kind}-voice-auto-action"]`)),
+		langCheckboxes: Array.from(pageEl.querySelectorAll('[data-role="lang-cb"]'))
+	};
+
+	voicePages.set(pageId, config);
+
+	config.sendSystemStatusBtn.addEventListener("click", async () => {
+		config.sendSystemStatusBtn.disabled = true;
+		config.sendSystemStatusBtn.innerText = "正在发送系统状态...";
+		lastSendPageId = pageId;
 
 		try {
 			const result = await window.api.sendSystemStatusToChatbox();
 			if (result?.ok) {
-				document.getElementById("chatbox-status").innerText =
-					"系统状态已发送到聊天框 - " + new Date().toLocaleTimeString();
+				config.statusEl.innerText = "系统状态已发送到聊天框 - " + new Date().toLocaleTimeString();
 			} else {
-				document.getElementById("chatbox-status").innerText =
-					"系统状态发送失败: " + (result?.error || "未知错误");
+				config.statusEl.innerText = "系统状态发送失败: " + (result?.error || "未知错误");
 			}
 		} catch (error) {
-			document.getElementById("chatbox-status").innerText = "系统状态发送失败: " + (error?.message || "未知错误");
+			config.statusEl.innerText = "系统状态发送失败: " + (error?.message || "未知错误");
 		} finally {
-			sendSystemStatusBtn.disabled = false;
-			sendSystemStatusBtn.innerText = "发送系统状态到聊天框";
+			config.sendSystemStatusBtn.disabled = false;
+			config.sendSystemStatusBtn.innerText = "发送系统状态到聊天框";
 		}
 	});
-}
 
-// 监听发送模式改变，切换翻译子选项的可见性
-document.querySelectorAll('input[name="send-mode"]').forEach((radio) => {
-	radio.addEventListener("change", (e) => {
-		const translateOptions = document.getElementById("translate-options");
-		if (e.target.value === "translate") {
-			translateOptions.style.display = "block";
-		} else {
-			translateOptions.style.display = "none";
-		}
+	config.sendModeRadios.forEach((radio) => {
+		radio.addEventListener("change", (event) => {
+			const shouldShowTranslateOptions =
+				event.target.value === "translate" || event.target.value === "aliyun-translate";
+			config.translateOptionsEl.style.display = shouldShowTranslateOptions ? "block" : "none";
+		});
+	});
+
+	config.voiceAutoModeRadios.forEach((radio) => {
+		radio.addEventListener("change", async (event) => {
+			if (event.target.value === "on") {
+				config.voiceAutoOptionsEl.style.display = "block";
+				await startCaptureForPage(pageId);
+			} else {
+				config.voiceAutoOptionsEl.style.display = "none";
+				await stopCaptureForPage(pageId, { silent: false, reason: "已停止监听" });
+			}
+		});
+	});
+
+	config.sendChatboxBtn.addEventListener("click", () => {
+		triggerSend(pageId, config.inputEl.value);
+	});
+
+	config.clearHistoryBtn.addEventListener("click", () => {
+		config.historyLogEl.innerHTML = HISTORY_PLACEHOLDER;
 	});
 });
 
-// 监听语音发送模式开关
-document.querySelectorAll('input[name="voice-auto-mode"]').forEach((radio) => {
-	radio.addEventListener("change", (e) => {
-		const voiceAutoOptions = document.getElementById("voice-auto-options");
-		if (e.target.value === "on") {
-			voiceAutoOptions.style.display = "block";
-			startRecording();
-		} else {
-			voiceAutoOptions.style.display = "none";
-			stopRecording();
-		}
-	});
-});
-
-// 提取发送逻辑，以便语音能直接调用
-function triggerSend(text) {
-	if (!text) return;
-	const mode = document.querySelector('input[name="send-mode"]:checked').value;
-
-	const langCbs = document.querySelectorAll(".lang-cb");
-	const targetLangs = Array.from(langCbs)
-		.filter((cb) => cb.checked)
-		.map((cb) => cb.value);
-
-	window.api.sendChatbox(text, mode, targetLangs);
-	console.log("Chatbox send request sent:", text, "Mode:", mode, "Target Langs:", targetLangs);
-	document.getElementById("chatbox-status").innerText = "Chatbox request sent at " + new Date().toLocaleTimeString();
-	document.getElementById("chatbox-input").value = ""; // clear after sending
-}
-
-document.getElementById("send-chatbox-btn").addEventListener("click", () => {
-	const inputEl = document.getElementById("chatbox-input");
-	triggerSend(inputEl.value);
-});
-
-// 通用的写入历史记录的方法
-function appendToHistory(message) {
-	const historyLog = document.getElementById("history-log");
-	if (historyLog) {
-		// 如果是第一次插入，清除占位文本
-		if (historyLog.innerHTML.includes("在这里显示历史记录...")) {
-			historyLog.innerHTML = "";
-		}
-
-		// 判断是否有现成的内容，加一个换行
-		const prefix = historyLog.innerText.trim() === "" ? "" : "\n\n";
-		historyLog.innerText += `${prefix}[${new Date().toLocaleTimeString()}]\n${message}`;
-		historyLog.scrollTop = historyLog.scrollHeight; // 自动滚动到底部
+function setStatus(pageId, message) {
+	const config = voicePages.get(pageId);
+	if (config?.statusEl) {
+		config.statusEl.innerText = message;
 	}
 }
 
-// 监听由于发往 VRChat 成功后的回执
-if (window.api.onChatboxSent) {
-	window.api.onChatboxSent((finalText) => {
-		document.getElementById("chatbox-status").innerText = "Chatbox sent at " + new Date().toLocaleTimeString();
-		appendToHistory("🚀 发送成功:\n" + finalText);
+function formatCaptureError(kind, error) {
+	const name = error?.name || "";
+	const message = error?.message || "";
+
+	if (kind === "system-audio") {
+		if (name === "NotAllowedError") {
+			return "系统音频监听失败: 你取消了捕获授权，或系统阻止了桌面音频共享。";
+		}
+		if (name === "NotFoundError") {
+			return "系统音频监听失败: 没有找到可用的桌面捕获源。";
+		}
+		if (name === "NotReadableError") {
+			return "系统音频监听失败: 捕获源被系统占用，暂时无法读取。";
+		}
+		if (name === "AbortError") {
+			return "系统音频监听失败: 桌面捕获在启动阶段被中止。";
+		}
+		if (name === "InvalidStateError") {
+			return "系统音频监听失败: 当前页面状态不允许发起系统音频捕获。";
+		}
+		return "系统音频监听失败: " + (message || "请检查桌面音频授权与系统输出设备。");
+	}
+
+	if (name === "NotAllowedError") {
+		return "麦克风监听失败: 你拒绝了麦克风授权。";
+	}
+	if (name === "NotFoundError") {
+		return "麦克风监听失败: 没有检测到可用的麦克风设备。";
+	}
+	return "麦克风监听失败: " + (message || "请检查麦克风权限。");
+}
+
+function appendToHistory(pageId, message) {
+	const config = voicePages.get(pageId);
+	if (!config?.historyLogEl) return;
+
+	if (config.historyLogEl.innerHTML.includes("在这里显示历史记录")) {
+		config.historyLogEl.innerHTML = "";
+	}
+
+	const prefix = config.historyLogEl.innerText.trim() === "" ? "" : "\n\n";
+	config.historyLogEl.innerText += `${prefix}[${new Date().toLocaleTimeString()}]\n${message}`;
+	config.historyLogEl.scrollTop = config.historyLogEl.scrollHeight;
+}
+
+function setVoiceAutoEnabled(pageId, enabled) {
+	const config = voicePages.get(pageId);
+	if (!config) return;
+
+	config.voiceAutoModeRadios.forEach((radio) => {
+		radio.checked = radio.value === (enabled ? "on" : "off");
+	});
+	config.voiceAutoOptionsEl.style.display = enabled ? "block" : "none";
+}
+
+function getCheckedValue(elements, fallback = "") {
+	return elements.find((element) => element.checked)?.value || fallback;
+}
+
+function getCurrentSendPageId() {
+	if (lastSendPageId && voicePages.has(lastSendPageId)) return lastSendPageId;
+	if (captureState.activePageId && voicePages.has(captureState.activePageId)) return captureState.activePageId;
+	return "page-microphone";
+}
+
+function triggerSend(pageId, text) {
+	if (!text) return;
+	const config = voicePages.get(pageId);
+	if (!config) return;
+
+	const mode = getCheckedValue(config.sendModeRadios, "direct");
+	const targetLangs = config.langCheckboxes.filter((checkbox) => checkbox.checked).map((checkbox) => checkbox.value);
+
+	window.api.sendChatbox(text, mode, targetLangs);
+	console.log("Chatbox send request sent:", text, "Mode:", mode, "Target Langs:", targetLangs);
+	config.statusEl.innerText = "Chatbox request sent at " + new Date().toLocaleTimeString();
+	config.inputEl.value = "";
+	lastSendPageId = pageId;
+}
+
+async function getCaptureStream(kind) {
+	if (kind === "system-audio") {
+		return navigator.mediaDevices.getDisplayMedia({
+			audio: true,
+			video: true
+		});
+	}
+
+	return navigator.mediaDevices.getUserMedia({
+		audio: {
+			echoCancellation: false,
+			noiseSuppression: false,
+			autoGainControl: false
+		},
+		video: false
 	});
 }
 
-// === 语音识别逻辑 (Web Audio) ===
-let audioCtx;
-let source;
-let processor;
-let stream;
-let isRecording = false;
+async function startCaptureForPage(pageId) {
+	const config = voicePages.get(pageId);
+	if (!config) return;
 
-const inputEl = document.getElementById("chatbox-input");
+	if (captureState.isRecording && captureState.activePageId === pageId) return;
 
-async function startRecording() {
-	if (isRecording) return;
-	isRecording = true;
-	inputEl.value = ""; // 清空之前的输入
+	if (captureState.isRecording && captureState.activePageId && captureState.activePageId !== pageId) {
+		const previousPageId = captureState.activePageId;
+		await stopCaptureForPage(previousPageId, {
+			silent: false,
+			reason: `已自动停止${voicePages.get(previousPageId)?.kind === "system-audio" ? "系统音频" : "麦克风"}监听，切换到当前页面`
+		});
+	}
+
+	config.inputEl.value = "";
+	setStatus(pageId, config.kind === "system-audio" ? "正在申请系统音频捕获权限..." : "正在申请麦克风权限...");
 
 	try {
-		// 请求麦克风权限，禁用所有浏览器内置的自动增益和处理
-		stream = await navigator.mediaDevices.getUserMedia({
-			audio: {
-				echoCancellation: false,
-				noiseSuppression: false,
-				autoGainControl: false
-			},
-			video: false
-		});
-		console.log("✅ 麦克风已成功接入，流信息:", stream);
+		const stream = await getCaptureStream(config.kind);
+		const audioTracks = stream.getAudioTracks();
 
-		// Sherpa-ONNX 默认通常需要 16kHz 的采样率
-		audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
-		source = audioCtx.createMediaStreamSource(stream);
+		if (!audioTracks.length) {
+			stream.getTracks().forEach((track) => track.stop());
+			setVoiceAutoEnabled(pageId, false);
+			setStatus(
+				pageId,
+				config.kind === "system-audio"
+					? "系统音频监听失败: 已拿到桌面流，但未检测到系统音频轨道。请确认系统正在播放声音后再重试。"
+					: "麦克风监听失败: 未检测到可用的音频轨道。"
+			);
+			return;
+		}
 
-		// 使用 ScriptProcessorNode 提取底层 PCM 浮点音频流
-		processor = audioCtx.createScriptProcessor(4096, 1, 1);
-
-		processor.onaudioprocess = (e) => {
-			if (!isRecording) return;
-			// 拿到单声道的 pcm float32 数组 (值在 -1.0 到 1.0 之间)
-			const inputData = e.inputBuffer.getChannelData(0);
-
-			// === 麦克风检测 ===
-			let sum = 0;
-			for (let i = 0; i < inputData.length; i++) {
-				sum += Math.abs(inputData[i]);
-			}
-			const volumeLevel = sum / inputData.length;
-			if (volumeLevel > 0.01) {
-				console.log("🎤 检测到声音输入，音量级别:", volumeLevel);
-			}
-
-			// 传递给 Main 进程的 STT 服务进行解码
-			window.api.sendAudioChunk(inputData.buffer);
-		};
-
-		// 必须连接目的地它才会开始捕获事件，但为了不将麦克风反馈到扬声器，使用 GainNode 设为 0 静音
+		const audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+		const source = audioCtx.createMediaStreamSource(stream);
+		const processor = audioCtx.createScriptProcessor(4096, 1, 1);
 		const gainNode = audioCtx.createGain();
 		gainNode.gain.value = 0;
+		const handleTrackEnded = () => {
+			if (captureState.activePageId !== pageId) return;
+			stopCaptureForPage(pageId, {
+				silent: false,
+				reason:
+					config.kind === "system-audio"
+						? "系统音频捕获已自动停止: 共享流被关闭或系统中断了回环音频。"
+						: "麦克风捕获已自动停止: 输入流已被系统关闭。"
+			});
+		};
+
+		processor.onaudioprocess = (event) => {
+			if (!captureState.isRecording || captureState.activePageId !== pageId) return;
+			const inputData = event.inputBuffer.getChannelData(0);
+			window.api.sendAudioChunk(inputData.buffer.slice(0));
+		};
+
+		stream.getTracks().forEach((track) => {
+			track.addEventListener("ended", handleTrackEnded, { once: true });
+		});
 
 		source.connect(processor);
 		processor.connect(gainNode);
 		gainNode.connect(audioCtx.destination);
 
-		// 通知主进程开启新一轮的解码流
-		window.api.startSTT();
-	} catch (err) {
-		console.error("无法获取麦克风:", err);
-		stopRecording();
+		captureState.stream = stream;
+		captureState.audioCtx = audioCtx;
+		captureState.source = source;
+		captureState.processor = processor;
+		captureState.gainNode = gainNode;
+		captureState.trackEndHandler = handleTrackEnded;
+		captureState.activePageId = pageId;
+		captureState.isRecording = true;
+
+		window.api.startSTT({ sourceKind: config.kind });
+		setStatus(
+			pageId,
+			config.kind === "system-audio"
+				? `系统音频监听中... 已连接 ${audioTracks.length} 条音频轨。`
+				: "麦克风监听中..."
+		);
+	} catch (error) {
+		console.error("启动采集失败:", error);
+		await stopCaptureForPage(pageId, { silent: true });
+		setVoiceAutoEnabled(pageId, false);
+		setStatus(pageId, formatCaptureError(config.kind, error));
 	}
 }
 
-function stopRecording() {
-	if (!isRecording) return;
-	isRecording = false;
+async function stopCaptureForPage(pageId, options = {}) {
+	if (!captureState.isRecording || captureState.activePageId !== pageId) return;
 
-	if (processor) {
-		processor.disconnect();
-		source.disconnect();
-	}
-	if (audioCtx) {
-		audioCtx.close();
-	}
-	if (stream) {
-		stream.getTracks().forEach((track) => track.stop());
+	const { silent = false, reason = "已停止监听" } = options;
+	const audioCtx = captureState.audioCtx;
+
+	if (captureState.processor) captureState.processor.disconnect();
+	if (captureState.source) captureState.source.disconnect();
+	if (captureState.gainNode) captureState.gainNode.disconnect();
+	if (captureState.stream) {
+		if (captureState.trackEndHandler) {
+			captureState.stream.getTracks().forEach((track) => {
+				track.removeEventListener("ended", captureState.trackEndHandler);
+			});
+		}
+		captureState.stream.getTracks().forEach((track) => track.stop());
 	}
 
-	// 告知主进程结束录音，主进程会回传最终识别好的完整字符
+	captureState.processor = null;
+	captureState.source = null;
+	captureState.gainNode = null;
+	captureState.stream = null;
+	captureState.trackEndHandler = null;
+	captureState.activePageId = null;
+	captureState.isRecording = false;
+
 	window.api.stopSTT();
+
+	if (audioCtx) {
+		captureState.audioCtx = null;
+		await audioCtx.close().catch(() => {});
+	}
+
+	if (!silent) {
+		setStatus(pageId, reason);
+	}
+	setVoiceAutoEnabled(pageId, false);
 }
 
-// 监听 STT 进程传回的实时文字
-window.api.onSTTResult((text, isFinal) => {
-	if (text.trim()) {
-		inputEl.value = text;
-		if (isFinal) {
-			console.log("最终录音识别结果:", text);
-			appendToHistory("🎙️ 语音识别:\n" + text);
+if (window.api.onChatboxSent) {
+	window.api.onChatboxSent((finalText) => {
+		const pageId = getCurrentSendPageId();
+		setStatus(pageId, "Chatbox sent at " + new Date().toLocaleTimeString());
+		appendToHistory(pageId, "🚀 发送成功:\n" + finalText);
+	});
+}
 
-			const voiceAutoMode = document.querySelector('input[name="voice-auto-mode"]:checked').value;
-			if (voiceAutoMode === "on") {
-				const voiceAutoAction = document.querySelector('input[name="voice-auto-action"]:checked').value;
-				if (voiceAutoAction === "direct-send") {
-					triggerSend(text);
-				}
+window.api.onSTTResult((text, isFinal) => {
+	const pageId = captureState.activePageId;
+	if (!pageId || !text.trim()) return;
+
+	const config = voicePages.get(pageId);
+	if (!config) return;
+
+	config.inputEl.value = text;
+	if (isFinal) {
+		console.log("最终录音识别结果:", text);
+		appendToHistory(pageId, `🎙️ ${config.kind === "system-audio" ? "系统音频识别" : "语音识别"}:\n${text}`);
+
+		const voiceAutoMode = getCheckedValue(config.voiceAutoModeRadios, "off");
+		if (voiceAutoMode === "on") {
+			const voiceAutoAction = getCheckedValue(config.voiceAutoActionRadios, "direct-send");
+			if (voiceAutoAction === "direct-send") {
+				triggerSend(pageId, text);
 			}
 		}
-	}
-});
-
-document.getElementById("clear-history-btn").addEventListener("click", () => {
-	const historyLog = document.getElementById("history-log");
-	if (historyLog) {
-		historyLog.innerHTML = '<span style="color: #999; font-style: italic;">在这里显示历史记录...</span>';
 	}
 });

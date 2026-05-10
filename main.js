@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, session } = require("electron");
+const { app, BrowserWindow, ipcMain, session, desktopCapturer } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
 const { autoUpdater } = require("electron-updater");
@@ -104,7 +104,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-	const mediaPermissions = new Set(["media", "microphone", "camera"]);
+	const mediaPermissions = new Set(["media", "microphone", "camera", "display-capture"]);
 	session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
 		const allow = mediaPermissions.has(permission);
 		console.log(
@@ -119,6 +119,30 @@ app.whenReady().then(() => {
 			console.log(`[PermissionCheck] ${permission} from ${requestingOrigin || "unknown"} -> ALLOW`);
 		}
 		return allow;
+	});
+
+	session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
+		desktopCapturer
+			.getSources({
+				types: ["screen"],
+				thumbnailSize: { width: 0, height: 0 }
+			})
+			.then((sources) => {
+				if (!sources.length) {
+					console.warn("[DisplayCapture] 未找到可用屏幕源，无法启用系统音频捕获");
+					callback({});
+					return;
+				}
+
+				callback({
+					video: sources[0],
+					audio: "loopback"
+				});
+			})
+			.catch((error) => {
+				console.error("[DisplayCapture] 获取桌面源失败:", error);
+				callback({});
+			});
 	});
 
 	// Let oscService initialize but DON'T start auto-polling yet
@@ -142,11 +166,12 @@ app.whenReady().then(() => {
 
 	ipcMain.on("osc:send-chatbox", async (event, text, mode, targetLangs) => {
 		let finalText = text;
+		const translateService = require("./node/translate-service.js");
 		if (mode === "ask") {
-			const translateService = require("./node/translate-service.js");
 			finalText = await translateService.askAI(text);
+		} else if (mode === "aliyun-translate" && targetLangs && targetLangs.length > 0) {
+			finalText = await translateService.translateTextWithAliyun(text, targetLangs);
 		} else if (mode === "translate" && targetLangs && targetLangs.length > 0) {
-			const translateService = require("./node/translate-service.js");
 			finalText = await translateService.translateText(text, targetLangs);
 		}
 
@@ -170,8 +195,8 @@ app.whenReady().then(() => {
 	});
 
 	// STT 相关事件监听
-	ipcMain.on("stt:start", () => {
-		sttService.startStream();
+	ipcMain.on("stt:start", (event, options) => {
+		sttService.startStream(options);
 	});
 
 	ipcMain.on("stt:chunk", (event, arrayBuffer) => {
